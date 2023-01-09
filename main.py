@@ -3,20 +3,38 @@
 # Press ⌃R to execute it or replace it with your code.
 # Press Double ⇧ to search everywhere for classes, files, tool windows, actions, and settings.
 
-
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press ⌘F8 to toggle the breakpoint.
+import simpy
+import numpy as np
 
 
-# Press the green button in the gutter to run the script.
+def compute_x(x0, lam, mu, u, G, t):
+    x = np.maximum(x0 + lam * t - np.matmul(G, mu * u) * t, 0)
+    return x
+
+
 if __name__ == '__main__':
     x01, x02, x03 = 10, 10, 10
-    lambda1, lambda2, lambda3 = 1.0, 1.0, 0.0
-    C1, C2 = 1.0, 1.0
-    u1, u2, u3 = 1.0, 1.0, 1.0
+    lam1, lam2, lam3 = lam = np.array((1.0, 1.0, 0.0))
+    mu1, mu2, mu3 = mu = np.array((1.0, 1.0, 1.0))
+    C1 = 1.0
+    G = np.array(((1.0, 0, 0),(0, 1.0, 0),(0, -1.0, 1.0)))
+    T = 30
 
+    np.random.seed(234)
 
-    print_hi('PyCharm')
+    MC = 1
 
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+    for i in range(MC):
+        for u in range(10):
+            # Run the simulation for autoscaled
+            env = simpy.Environment()
+
+            x0 = np.array((x01, x02, x03))
+
+            u1 = round(1.0 - u * 0.1, 1)
+            u2 = round(C1 - u1, 1)
+            u3 = 1.0
+            u = np.array((u1, u2, u3))
+
+            for t in range(0, T+1):
+                print(f'(u1,u2,u3) = ({(u1, u2, u3)}) x({t}) = {compute_x(x0, lam, mu, u, G, t)}')
