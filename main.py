@@ -23,7 +23,7 @@ def compute_cost(c, x0, lam, mu, u, G, TT, dt=0.1):
 
 
 def compute_variance(sigma_2, u, TT):
-    return sigma_2 / (u.dot(u) * TT)
+    return sigma_2 * (1 / (u.dot(u) * TT))
 
 
 df = pd.DataFrame({'e': [], 'mc': [], 'J': [], 'sigma_2': []})
@@ -41,6 +41,7 @@ if __name__ == '__main__':
     mu_mid = 1.0
     mu_wid = 0.25
     sigma_2 = mu_wid**2 / 12.0
+    Sigma_2 = np.eye(3) * sigma_2
 
     MC = 100
     u3s = []
@@ -50,7 +51,7 @@ if __name__ == '__main__':
             # Run the simulation in an environment
             # env = simpy.Environment()
 
-            mu1, mu2, mu3 = mu = 1.0, 1.0, np.random.uniform(mu_mid - mu_wid / 2.0, mu_mid + mu_wid / 2.0)
+            mu1, mu2, mu3 = mu = np.random.uniform(mu_mid - mu_wid / 2.0, mu_mid + mu_wid / 2.0, 3)
 
             x0 = np.array((x01, x02, x03))
 
@@ -65,7 +66,7 @@ if __name__ == '__main__':
             assert all(u >= 0), f"u={u}"
             assert all(u <= 1.0), f"u={u}"
 
-            df.loc[len(df)] = [e, mc, compute_cost(c, x0, lam, mu, u, G, TT), compute_variance(sigma_2, u, TT)]
+            df.loc[len(df)] = [e, mc, compute_cost(c, x0, lam, mu, u, G, TT), compute_variance(Sigma_2, u, TT)[2,2]]
             u3s.append(u3)
 
     dfm = df.groupby('e')[['J', 'sigma_2']].mean()
