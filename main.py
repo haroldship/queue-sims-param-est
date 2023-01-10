@@ -40,26 +40,30 @@ if __name__ == '__main__':
     np.random.seed(1234)
     mu_mid = 1.0
     mu_wid = 0.25
-    mu1, mu2, mu3 = mu = np.random.uniform(mu_mid - mu_wid/2.0, mu_mid + mu_wid / 2.0, 3)
     sigma_2 = mu_wid**2 / 12.0
 
     MC = 100
     u3s = []
 
     for mc in range(MC):
-        for e in range(10+1):
-            # Run the simulation for autoscaled
-            env = simpy.Environment()
+        for e in np.arange(0, 1.1, 0.1):
+            # Run the simulation in an environment
+            # env = simpy.Environment()
+
+            mu1, mu2, mu3 = mu = 1.0, 1.0, np.random.uniform(mu_mid - mu_wid / 2.0, mu_mid + mu_wid / 2.0)
 
             x0 = np.array((x01, x02, x03))
 
-            u1 = round(1.0 - e * 0.1, 1)
-            u2 = round(C1 - u1, 1)
+            u1 = 1.0 - e
+            u2 = e
             u3 = np.random.uniform(0.0, 1.0)
+            # if u1 + u2 > 1.0:
+            #     u1 = round(u1/(u1+u2), 2)
+            #     u2 = round(1.0 - u2, 2)
             u = np.array((u1, u2, u3))
 
-            assert all(u >= 0)
-            assert all(u <= 1.0)
+            assert all(u >= 0), f"u={u}"
+            assert all(u <= 1.0), f"u={u}"
 
             df.loc[len(df)] = [e, mc, compute_cost(c, x0, lam, mu, u, G, TT), compute_variance(sigma_2, u, TT)]
             u3s.append(u3)
@@ -68,7 +72,7 @@ if __name__ == '__main__':
 
     plt.scatter(dfm.J, dfm.sigma_2)
     plt.xlabel('J')
-    plt.title(r'Var($\hat{\beta}(u)$) vs $J(u)$')
+    plt.title(r'Var($\hat{\beta}_3(u)$) vs $J(u)$')
     plt.savefig('beta_hat-vs-J.pdf')
     plt.cla()
     plt.scatter(range(len(u3s)), u3s)
