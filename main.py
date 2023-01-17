@@ -38,24 +38,34 @@ def process_task(env, service_time):
     yield env.timeout(service_time)
 
 
-def enter_network(env, task_no, buffers, task_type, mu):
+def enter_network(env, G, buffers, task_type, mu, skip_queue=False):
     arrive_time = env.now
     task_index = task_type - 1
 
     queue = buffers[task_index]
-    queue_df.loc[queue_df.size] = (task_type, arrive_time, len(queue.queue))
+    if not skip_queue:
+        queue_df.loc[queue_df.size] = (task_type, arrive_time, len(queue.queue))
     with queue.request() as req:
         yield req
         start_time = env.now
-        queue_df.loc[queue_df.size] = (task_type, start_time, len(queue.queue))
+        if not skip_queue:
+            queue_df.loc[queue_df.size] = (task_type, start_time, len(queue.queue))
         service_time = npr.exponential(1.0/mu[task_index])
         complete_time = start_time + service_time
-        task_df.loc[task_df.size] = (task_no, task_type, arrive_time, start_time, complete_time)
         yield env.process(process_task(env, service_time))
-        queue_df.loc[queue_df.size] = (task_type, complete_time, len(queue.queue))
+        if not skip_queue:
+            queue_df.loc[queue_df.size] = (task_type, complete_time, len(queue.queue))
+        task_no = task_df.size
+        task_df.loc[task_no] = (task_no, task_type, arrive_time, start_time, complete_time)
+        J = G.shape[1]
+        for j in range(J):
+            if j == task_index: continue
+            p_kj = -G[j, task_index]
+            if npr.binomial(1, p_kj):
+                env.process(enter_network(env, G, buffers, j+1, mu))
 
 
-def run_network(env, buffers, x0, lam, mu):
+def run_network(env, G, buffers, x0, lam, mu):
     task_no = 0
     total_rate = np.sum(lam)
     probs = lam / total_rate
@@ -63,18 +73,30 @@ def run_network(env, buffers, x0, lam, mu):
     for k in range(ntypes):
         for n in range(x0[k]):
             task_type = k + 1
+            queue_df.loc[queue_df.size] = (task_type, 0, x0[k])
             task_no += 1
-            env.process(enter_network(env, task_no, buffers, task_type, mu))
+            env.process(enter_network(env, G, buffers, task_type, mu, skip_queue=True))
 
     while True:
         yield env.timeout(npr.exponential(1.0 / total_rate))
         task_type = npr.choice(ntypes, p=probs) + 1
         task_no += 1
-        env.process(enter_network(env, task_no, buffers, task_type, mu))
+        env.process(enter_network(env, G, buffers, task_type, mu))
+
+
+def q(k, t):
+    queue_df_k = queue_df[(queue_df.task_type == k)]
+    queue_df_kt = queue_df_k[(queue_df_k.time >= t)]
+    if queue_df_kt.size == 0:
+        if t < 1e-5:
+            return queue_df_k.iloc[0]['length']
+        else:
+            return queue_df_k.iloc[-1]['length']
+    return queue_df_kt.iloc[0]['length']
 
 
 def run_random_arrivals():
-    npr.seed(1234)
+    npr.seed(1)
 
     x01, x02, x03 = x0 = np.array((10, 10, 10))
     lam1, lam2, lam3 = lam = np.array((1.0, 1.0, 0.0))
@@ -84,15 +106,30 @@ def run_random_arrivals():
     c = np.array((1.0, 1.0, 1.0)) # hold cost per item per unit time
     G = np.array(((1.0, 0, 0),(0, 1.0, 0),(0, -1.0, 1.0)))
     TT = 30
+    dt = 0.5
 
     env = simpy.Environment()
 
     x1, x2, x3, = buffers = [simpy.Resource(env, capacity=1) for i in range(3)]
 
-    env.process(run_network(env, buffers, x0, lam, mu))
+    env.process(run_network(env, G, buffers, x0, lam, mu))
     env.run(TT)
-    print(task_df)
-    print(queue_df)
+    task_df['wait_time'] = task_df.start_time - task_df.arrive_time
+    task_df['service_time'] = task_df.complete_time - task_df.start_time
+    task_df['sojourn_time'] = task_df.complete_time - task_df.arrive_time
+
+    sample_times = np.arange(0, TT + dt, dt)
+    for t in sample_times:
+        print(f'q3({t})={q(3,t)}')
+
+    X_t = np.array([u3 * t for t in sample_times]).reshape(len(sample_times), 1)
+    Y_t = np.array([-q(3,t) + x03 + (lam[2] + u2) * t for t in sample_times]).reshape(len(sample_times), 1)
+
+    mu3_hat = np.linalg.inv(X_t.T.dot(X_t)).dot(X_t.T).dot(Y_t)
+    print(mu3_hat)
+
+    plt.scatter(X_t, Y_t)
+    plt.show()
 
 
 def run_random_controls():
