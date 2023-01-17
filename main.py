@@ -7,6 +7,7 @@ import simpy
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import numpy.random as npr
 
 
 def compute_x(x0, lam, mu, u, G, t):
@@ -29,7 +30,72 @@ def compute_variance(sigma_2, u, TT):
 df = pd.DataFrame({'e': [], 'mc': [], 'J': [], 'sigma_2': []})
 
 
-if __name__ == '__main__':
+task_df = pd.DataFrame(None, columns=('task_no', 'task_type', 'arrive_time', 'start_time', 'complete_time'))
+queue_df = pd.DataFrame(None, columns=('task_type', 'time', 'length'))
+
+
+def process_task(env, service_time):
+    yield env.timeout(service_time)
+
+
+def enter_network(env, task_no, buffers, task_type, mu):
+    arrive_time = env.now
+    task_index = task_type - 1
+
+    queue = buffers[task_index]
+    queue_df.loc[queue_df.size] = (task_type, arrive_time, len(queue.queue))
+    with queue.request() as req:
+        yield req
+        start_time = env.now
+        queue_df.loc[queue_df.size] = (task_type, start_time, len(queue.queue))
+        service_time = npr.exponential(1.0/mu[task_index])
+        complete_time = start_time + service_time
+        task_df.loc[task_df.size] = (task_no, task_type, arrive_time, start_time, complete_time)
+        yield env.process(process_task(env, service_time))
+        queue_df.loc[queue_df.size] = (task_type, complete_time, len(queue.queue))
+
+
+def run_network(env, buffers, x0, lam, mu):
+    task_no = 0
+    total_rate = np.sum(lam)
+    probs = lam / total_rate
+    ntypes = len(lam)
+    for k in range(ntypes):
+        for n in range(x0[k]):
+            task_type = k + 1
+            task_no += 1
+            env.process(enter_network(env, task_no, buffers, task_type, mu))
+
+    while True:
+        yield env.timeout(npr.exponential(1.0 / total_rate))
+        task_type = npr.choice(ntypes, p=probs) + 1
+        task_no += 1
+        env.process(enter_network(env, task_no, buffers, task_type, mu))
+
+
+def run_random_arrivals():
+    npr.seed(1234)
+
+    x01, x02, x03 = x0 = np.array((10, 10, 10))
+    lam1, lam2, lam3 = lam = np.array((1.0, 1.0, 0.0))
+    mu1, mu2, mu3 = mu = np.array((1.0, 1.0, 1.0))
+    u1, u2, u3 = u = np.array((1.0, 1.0, 1.0))
+    C1, C2 = C = np.array((1.0, 1.0)) # capacity of servers 1, 2
+    c = np.array((1.0, 1.0, 1.0)) # hold cost per item per unit time
+    G = np.array(((1.0, 0, 0),(0, 1.0, 0),(0, -1.0, 1.0)))
+    TT = 30
+
+    env = simpy.Environment()
+
+    x1, x2, x3, = buffers = [simpy.Resource(env, capacity=1) for i in range(3)]
+
+    env.process(run_network(env, buffers, x0, lam, mu))
+    env.run(TT)
+    print(task_df)
+    print(queue_df)
+
+
+def run_random_controls():
     x01, x02, x03 = 10, 10, 10
     lam1, lam2, lam3 = lam = np.array((1.0, 1.0, 0.0))
     C1 = 1.0 # capacity of server 1
@@ -79,3 +145,7 @@ if __name__ == '__main__':
     plt.scatter(range(len(u3s)), u3s)
     plt.title(r'$u_3$ in simulations')
     plt.savefig('u3_values.pdf')
+
+
+if __name__ == '__main__':
+    run_random_arrivals()
