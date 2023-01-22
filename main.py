@@ -6,10 +6,9 @@
 import simpy
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import numpy.random as npr
 import statistics
-
+import datetime
 
 def compute_cost(queue_df, c, TT, sample_times):
     cost = 0
@@ -56,6 +55,7 @@ def enter_network(task_df, queue_df, env, G, buffers, task_type, mu, u, skip_que
         start_time = env.now
         if not skip_queue:
             queue_df.loc[queue_df.size] = (task_type, start_time, len(queue.queue))
+        if u[task_index] < 1e-10: yield env.timeout(float('inf'))
         service_time = npr.exponential(1.0/(u[task_index] * mu[task_index]))
         complete_time = start_time + service_time
         yield env.process(process_task(env, service_time))
@@ -90,27 +90,28 @@ def run_network(task_df, queue_df, env, G, buffers, x0, lam, mu, u):
         env.process(enter_network(task_df, queue_df, env, G, buffers, task_type, mu, u))
 
 
-def run_random_arrivals():
+def run_random_arrivals(name, experiments, MC, network_params):
 
-    x0 = np.array((50, 50, 50))
-    lam = np.array((2.0, 2.0, 0.0))
-    mu = np.array((2.0, 2.0, 1.0))
-    C = np.array((1.0, 1.0)) # capacity of servers 1, 2
-    c = np.array((1.0, 1.0, 1.0)) # hold cost per item per unit time
-    G = np.array(((1.0, 0, 0),(0, 1.0, 0),(0, -1.0, 1.0)))
-
-    MC = 1000
+    x0 = network_params['x0']
+    lam = network_params['lam']
+    mu = network_params['mu']
+    C = network_params['C']
+    c = network_params['c']
+    G = network_params['G']
 
     stats_df = pd.DataFrame(None, columns=('T', 'N', 'u1', 'u2', 'u3', 'cost_mean', 'mu3_mean', 'mu3_var'), dtype='float')
 
-    for TT, n, u in [(30, 5, (1.0, 1.0, 1.0)),(30, 10, (1.0, 1.0, 1.0)),(30, 15, (1.0, 1.0, 1.0)), (30, 30, (1.0, 1.0, 1.0)), (30, 60, (1.0, 1.0, 1.0)), (30, 120, (1.0, 1.0, 1.0)), (30, 240, (1.0, 1.0, 1.0)), (30, 480, (1.0, 1.0, 1.0))]:
+    for TT, n, u in experiments:
 
         npr.seed(1)
 
         costs = []
         mu3_hats = []
 
-        for mc in range(2):
+        for mc in range(MC):
+            if mc % 10 == 9:
+                print('.', sep='',end='')
+
             task_df = pd.DataFrame(None, columns=('task_no', 'task_type', 'arrive_time', 'start_time', 'complete_time'))
             queue_df = pd.DataFrame(None, columns=('task_type', 'time', 'length'))
             
@@ -134,6 +135,8 @@ def run_random_arrivals():
             mu3_hats.append(mu3_hat)
             costs.append(cost)
 
+        print()
+
         cost_mean = statistics.mean(costs)
         mu3_hat_mean = statistics.mean(mu3_hats)
         mu3_hat_var = statistics.variance(mu3_hats, mu3_hat_mean)
@@ -141,8 +144,22 @@ def run_random_arrivals():
         experiment_no = len(stats_df)
         stats_df.loc[experiment_no] = (TT, n, *u, cost_mean, mu3_hat_mean, mu3_hat_var)
 
-    print(stats_df)
+    now = datetime.datetime.now()
+    if not name:
+        name = now.strftime('%Y-%m-%d-%H%M%S')
+    stats_df.to_csv(f'experiment_{name}.csv', index=False)
 
 
 if __name__ == '__main__':
-    run_random_arrivals()
+    name = 'u2-vs-u3'
+    MC = 50
+    experiments = [(120, 240, (0.0, u2, u3)) for u2, u3 in ((0,0.1),(0,0.9),(0.1,0.1),(0.9, 0.9))]
+    network_params = {
+        'x0': np.array((10, 10, 10)),
+        'lam': np.array((1.0, 1.0, 0.0)),
+        'mu': np.array((1.0, 1.0, 1.0)),
+        'C': np.array((1.0, 1.0)), # capacity of servers 1, 2
+        'c': np.array((1.0, 1.0, 1.0)), # hold cost per item per unit time
+        'G': np.array(((1.0, 0, 0),(0, 1.0, 0),(0, -1.0, 1.0)))
+    }
+    run_random_arrivals("", experiments, MC, network_params)
