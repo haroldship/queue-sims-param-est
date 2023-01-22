@@ -151,9 +151,9 @@ def run_random_arrivals(name, experiments, MC, network_params):
 
 
 if __name__ == '__main__':
-    name = 'u2-vs-u3'
+    name = 'sample-size'
     MC = 50
-    experiments = [(120, 240, (0.0, u2, u3)) for u2, u3 in ((0,0.1),(0,0.9),(0.1,0.1),(0.9, 0.9))]
+    experiments = [(120, N, (1.0, 1.0, 1.0)) for N in range(10, 250, 10)]
     network_params = {
         'x0': np.array((10, 10, 10)),
         'lam': np.array((1.0, 1.0, 0.0)),
@@ -162,4 +162,4 @@ if __name__ == '__main__':
         'c': np.array((1.0, 1.0, 1.0)), # hold cost per item per unit time
         'G': np.array(((1.0, 0, 0),(0, 1.0, 0),(0, -1.0, 1.0)))
     }
-    run_random_arrivals("", experiments, MC, network_params)
+    run_random_arrivals(name, experiments, MC, network_params)
