@@ -10,6 +10,7 @@ import numpy.random as npr
 import statistics
 import datetime
 
+
 def compute_cost(queue_df, c, TT, sample_times):
     cost = 0
     K = len(c)
@@ -151,15 +152,7 @@ def run_random_arrivals(name, experiments, MC, network_params):
 
 
 if __name__ == '__main__':
-    name = 'sample-size'
-    MC = 50
-    experiments = [(120, N, (1.0, 1.0, 1.0)) for N in range(10, 250, 10)]
-    network_params = {
-        'x0': np.array((10, 10, 10)),
-        'lam': np.array((1.0, 1.0, 0.0)),
-        'mu': np.array((1.0, 1.0, 1.0)),
-        'C': np.array((1.0, 1.0)), # capacity of servers 1, 2
-        'c': np.array((1.0, 1.0, 1.0)), # hold cost per item per unit time
-        'G': np.array(((1.0, 0, 0),(0, 1.0, 0),(0, -1.0, 1.0)))
-    }
+    MC = 500
+    from experiment_sample_size import name, experiments
+    from criss_cross_network import network_params
     run_random_arrivals(name, experiments, MC, network_params)
