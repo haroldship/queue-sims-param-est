@@ -9,6 +9,7 @@ import pandas as pd
 import numpy.random as npr
 import statistics
 import datetime
+import tomli
 
 
 def compute_cost(queue_df, c, TT, sample_times):
@@ -65,11 +66,11 @@ def enter_network(task_df, queue_df, env, G, buffers, task_type, mu, u, skip_que
         task_no = task_df.size
         task_df.loc[task_no] = (task_no, task_type, arrive_time, start_time, complete_time)
         J = G.shape[1]
-        for j in range(J):
-            if j == task_index: continue
-            p_kj = -G[j, task_index]
-            if npr.binomial(1, p_kj):
-                env.process(enter_network(task_df, queue_df, env, G, buffers, j+1, mu, u))
+        probs = -G[:,task_index]
+        probs[task_index] = -sum(probs)
+        next_j = npr.default_rng().choice(range(J), p=probs)
+        if next_j != task_index:
+            env.process(enter_network(task_df, queue_df, env, G, buffers, next_j + 1, mu, u))
 
 
 def run_network(task_df, queue_df, env, G, buffers, x0, lam, mu, u):
@@ -152,7 +153,14 @@ def run_random_arrivals(name, experiments, MC, network_params):
 
 
 if __name__ == '__main__':
-    MC = 500
-    from experiment_sample_size import name, experiments
-    from criss_cross_network import network_params
+    MC = 10
+    with open("experiment_sample_size.toml", "rb") as f:
+        experiment_params = tomli.load(f)
+        name = experiment_params['name']
+        experiments = experiment_params['experiments']
+
+    with open("criss_cross_network.toml", "rb") as f:
+        network_params = tomli.load(f)
+        network_params['c'] = np.array(network_params['c'])
+        network_params['G'] = np.array(network_params['G'])
     run_random_arrivals(name, experiments, MC, network_params)
