@@ -55,14 +55,12 @@ def enter_network(task_df, queue_df, env, G, buffers, task_type, mu, u, skip_que
     with queue.request() as req:
         yield req
         start_time = env.now
-        if not skip_queue:
-            queue_df.loc[queue_df.size] = (task_type, start_time, len(queue.queue))
+        queue_df.loc[queue_df.size] = (task_type, start_time, len(queue.queue))
         if u[task_index] < 1e-10: yield env.timeout(float('inf'))
         service_time = npr.exponential(1.0/(u[task_index] * mu[task_index]))
         complete_time = start_time + service_time
         yield env.process(process_task(env, service_time))
-        if not skip_queue:
-            queue_df.loc[queue_df.size] = (task_type, complete_time, len(queue.queue))
+        queue_df.loc[queue_df.size] = (task_type, complete_time, len(queue.queue))
         task_no = task_df.size
         task_df.loc[task_no] = (task_no, task_type, arrive_time, start_time, complete_time)
         J = G.shape[1]
@@ -111,8 +109,10 @@ def run_random_arrivals(name, experiments, MC, network_params):
         mu3_hats = []
 
         for mc in range(MC):
-            if mc % 10 == 9:
-                print('.', sep='',end='')
+            if mc % 100 == 99:
+                print('+', sep='', end='')
+            elif mc % 10 == 9:
+                print('.', sep='', end='')
 
             task_df = pd.DataFrame(None, columns=('task_no', 'task_type', 'arrive_time', 'start_time', 'complete_time'))
             queue_df = pd.DataFrame(None, columns=('task_type', 'time', 'length'))
@@ -154,7 +154,7 @@ def run_random_arrivals(name, experiments, MC, network_params):
 
 if __name__ == '__main__':
     MC = 10
-    with open("experiment_sample_size.toml", "rb") as f:
+    with open("experiment_u2-vs-u3.toml", "rb") as f:
         experiment_params = tomli.load(f)
         name = experiment_params['name']
         experiments = experiment_params['experiments']
