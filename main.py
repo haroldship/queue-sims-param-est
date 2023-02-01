@@ -153,8 +153,8 @@ def run_random_arrivals(name, experiments, MC, network_params):
 
 
 if __name__ == '__main__':
-    MC = 10
-    with open("experiment_u2-vs-u3.toml", "rb") as f:
+    MC = 500
+    with open("experiment_sample-size.toml", "rb") as f:
         experiment_params = tomli.load(f)
         name = experiment_params['name']
         experiments = experiment_params['experiments']
