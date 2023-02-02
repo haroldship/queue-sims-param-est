@@ -137,7 +137,7 @@ def run_random_arrivals(name, experiments, MC, network_params):
             mu3_hats.append(mu3_hat)
             costs.append(cost)
 
-        print()
+        print('!')
 
         cost_mean = statistics.mean(costs)
         mu3_hat_mean = statistics.mean(mu3_hats)
@@ -153,13 +153,13 @@ def run_random_arrivals(name, experiments, MC, network_params):
 
 
 if __name__ == '__main__':
-    MC = 500
-    with open("experiment_sample-size.toml", "rb") as f:
+    MC = 100
+    with open("experiment_sample-size-for-100.toml", "rb") as f:
         experiment_params = tomli.load(f)
         name = experiment_params['name']
         experiments = experiment_params['experiments']
 
-    with open("criss_cross_network.toml", "rb") as f:
+    with open("criss_cross_network-100.toml", "rb") as f:
         network_params = tomli.load(f)
         network_params['c'] = np.array(network_params['c'])
         network_params['G'] = np.array(network_params['G'])

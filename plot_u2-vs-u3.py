@@ -7,9 +7,9 @@ if __name__ == "__main__":
     markers = ['o','+','<','>']
 
     for i, r in stats_df.iterrows():
-        plt.scatter(r.mu3_var, r.cost_mean, marker=markers[i], label=f'$u_2=${r["u2"]} $u_3$={r["u3"]}')
+        plt.scatter(r.cost_mean, r.mu3_var, marker=markers[i], label=f'$u_2=${r["u2"]} $u_3$={r["u3"]}')
 
-    plt.xlabel(r'Var$(\mu_3)$')
-    plt.ylabel('Mean cost')
+    plt.ylabel(r'Var$(\mu_3)$')
+    plt.xlabel('Mean cost')
     plt.legend()
     plt.savefig('experiment_u2-vs-u3.pdf')
